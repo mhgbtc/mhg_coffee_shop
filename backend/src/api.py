@@ -54,7 +54,7 @@ def get_drinks():
 
 @app.route('/drinks-detail', methods=['GET'])
 @requires_auth('get:drinks-detail')
-def get_drinks_detail():
+def get_drinks_detail(token):
     all_drinks = Drink.query.all()
     
     if len(all_drinks) == 0:
@@ -81,7 +81,7 @@ def get_drinks_detail():
 
 @app.route('/drinks', methods=['POST'])
 @requires_auth('post:drinks')
-def create_drinks():
+def create_drinks(jwt):
     body = request.get_json()
     
     new_title = body.get("title", None)
@@ -116,9 +116,9 @@ def create_drinks():
         or appropriate status code indicating reason for failure
 '''
 
-@app.route('/drinks/<int: drink_id>', methods=['PATCH'])
+@app.route('/drinks/<drink_id>', methods=['PATCH'])
 @requires_auth('patch:drinks')
-def update_drink(drink_id):
+def update_drink(jwt, drink_id):
     get_drink = Drink.query.get(drink_id)
     
     if get_drink:
@@ -161,9 +161,9 @@ def update_drink(drink_id):
         or appropriate status code indicating reason for failure
 '''
 
-@app.route('/drinks/<int:drink_id>', methods=['DELETE'])
+@app.route('/drinks/<drink_id>', methods=['DELETE'])
 @requires_auth('delete:drinks')
-def delete_drink(drink_id):
+def delete_drink(jwt, drink_id):
     get_drink = Drink.query.get(drink_id)
     
     if get_drink:
