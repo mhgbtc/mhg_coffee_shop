@@ -1,3 +1,4 @@
+from importlib.metadata import requires
 import os
 from flask import Flask, request, jsonify, abort
 from sqlalchemy import exc
@@ -12,12 +13,12 @@ setup_db(app)
 CORS(app)
 
 '''
-@TODO uncomment the following line to initialize the datbase
+@TODO uncomment the following line to initialize the database
 !! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
 !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
-!! Running this funciton will add one
+!! Running this function will add one
 '''
-# db_drop_and_create_all()
+db_drop_and_create_all()
 
 # ROUTES
 '''
@@ -29,6 +30,21 @@ CORS(app)
         or appropriate status code indicating reason for failure
 '''
 
+@app.route('/drinks')
+def get_drinks():
+    all_drinks = Drink.query.order_by(Drink.id).all()
+    
+    if len(all_drinks) == 0:
+        abort(404)
+        
+    drinks = [drink.short() for drink in all_drinks]
+    
+    return jsonify(
+        {
+            "success": True,
+            "drinks": drinks
+        }
+    ),200
 
 '''
 @TODO implement endpoint
@@ -39,6 +55,22 @@ CORS(app)
         or appropriate status code indicating reason for failure
 '''
 
+@app.route('/drinks-detail')
+@requires_auth('get:drinks-detail')
+def get_drinks_detail():
+    all_drinks = Drink.query.order_by(Drink.id).all()
+    
+    if len(all_drinks) == 0:
+        abort(404)
+        
+    drinks = [drink.long() for drink in all_drinks]
+    
+    return jsonify(
+        {
+            "success": True,
+            "drinks": drinks
+        }
+    ),200
 
 '''
 @TODO implement endpoint
@@ -50,7 +82,34 @@ CORS(app)
         or appropriate status code indicating reason for failure
 '''
 
-
+@app.route('/drinks', methods=['POST'])
+@requires_auth('post:drinks')
+def create_drinks():
+    body = request.get_json()
+    
+    new_title = body.get("title", None)
+    new_recipe = body.get("recipe", None)
+    
+    if new_title == "" or new_recipe == "":
+        abort(422)
+        
+    try:
+        new_drink = Drink(title=new_title, recipe=new_recipe)
+        new_drink.insert()
+        
+        created_drink = Drink.query.filter(Drink.id==new_drink.id).one_or_none()
+        drink = created_drink.long()
+        
+        return jsonify(
+            {
+                "success": True,
+                "drinks": drink
+            }
+        ), 200
+        
+    except:
+        abort(422)
+        
 '''
 @TODO implement endpoint
     PATCH /drinks/<id>
@@ -63,6 +122,36 @@ CORS(app)
         or appropriate status code indicating reason for failure
 '''
 
+@app.route('/drinks/<int: drink_id>', methods=['PATCH'])
+@requires_auth('patch:drinks')
+def update_drink(drink_id):
+    get_drink = Drink.query.filter_by(id == drink_id).one_or_none()
+    
+    if get_drink.id is None:
+        abort(404)
+        
+    body = request.get_json()
+    edited_title = body.get('title', None)
+    edited_recipe = body.get('recipe', None)
+    
+    try:
+        get_drink.title = edited_title
+        get_drink.recipe = edited_recipe
+        get_drink.update()
+        
+        updated_drink = Drink.query.filter(Drink.id==get_drink.id).one_or_none()
+        drink = updated_drink.long()
+        
+        return jsonify(
+            {
+                "success": True,
+                "drinks": drink
+            }
+        ), 200
+        
+    except:
+        abort(422)
+
 
 '''
 @TODO implement endpoint
@@ -74,6 +163,26 @@ CORS(app)
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
+
+@app.route('/drinks/<int:drink_id>')
+@requires_auth('delete:drinks')
+def delete_drink(drink_id):
+    get_drink = Drink.query.filter_by(id == drink_id).one_or_none()
+    
+    if get_drink.id is None:
+        abort(404)
+        
+    try:
+        get_drink.delete()
+        return jsonify(
+            {
+                "success": True,
+                "delete": get_drink.id
+            }
+        ),200
+        
+    except:
+        abort(422)
 
 
 # Error Handling
@@ -93,7 +202,7 @@ def unprocessable(error):
 
 '''
 @TODO implement error handlers using the @app.errorhandler(error) decorator
-    each error handler should return (with approprate messages):
+    each error handler should return (with appropriate messages):
              jsonify({
                     "success": False,
                     "error": 404,
